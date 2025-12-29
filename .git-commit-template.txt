@@ -1,0 +1,43 @@
+feat: Comprehensive portfolio analysis enhancements and documentation
+
+Major Additions:
+- Added comprehensive real-world use cases notebook (portfolio_real_world_usecases.ipynb)
+  * 5 use cases: Multi-asset, Sector-based, International, Risk Budgeting, Large Institutional
+  * Support for regular, leveraged (1.5x), and denoised portfolio variants
+  * Pie chart visualizations for all use cases
+  * Comprehensive risk-return analysis with all metrics
+  * Out-of-sample volatility forecasting
+  * Leveraged vs unleveraged comparisons
+
+- Added Financial Glossary (FINANCIAL_GLOSSARY.md)
+  * Complete definitions of all portfolio metrics (Sharpe, Information Ratio, Volatility, etc.)
+  * Portfolio optimization method explanations (HRP, Risk Parity, NCO, RE-HRP, MV)
+  * Portfolio modification terms (Leveraged, Denoised)
+  * Guide for interpreting analysis tables
+
+- Added Contributing Guidelines (CONTRIBUTING.md)
+  * Pre-commit requirements: MUST run `uv run ruff check`
+  * Code quality standards
+  * Development setup instructions
+
+New Features:
+- Return-Enhanced HRP (RE-HRP) implementation
+- Covariance matrix denoising with constant_residual method
+- Support for leveraged portfolios (1.5x scaling)
+- Comprehensive pie chart visualizations
+- Mathematical verification of portfolio constraints
+
+Documentation:
+- Updated README with results visualization
+- Added financial glossary reference
+- Added pre-commit requirements section
+- Enhanced project structure documentation
+
+Code Quality:
+- Fixed AttributeError in verification cells (tuple unpacking order)
+- Added clear cell labels for Use Case 5
+- Improved error handling and safety checks
+
+Note: Ruff linting check added as mandatory pre-commit requirement.
+Some minor linting warnings exist (mostly in notebooks) and will be addressed in follow-up.
+

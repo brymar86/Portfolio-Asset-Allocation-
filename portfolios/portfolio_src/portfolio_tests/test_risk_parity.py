@@ -116,13 +116,8 @@ class TestRiskParity:
         
         # Get risk contributions
         risk_contribs = rp.risk_contributions_
-        cov_matrix = rp.cov_matrix_.values
-        portfolio_vol = np.sqrt(weights.T @ cov_matrix @ weights)
         
         # Verify risk contributions are approximately equal
-        n_assets = len(weights)
-        target_rc = portfolio_vol / n_assets
-        
         # Check that all risk contributions are close to target
         # Skip assets with near-zero weights (they may have near-zero risk contributions)
         meaningful_weights = weights > 1e-6
@@ -284,9 +279,6 @@ class TestRiskParity:
             f"Risk contribution percentages should sum to 100% (got {total_pct:.2f}%)"
         
         # Verify percentages are approximately equal
-        n_assets = len(percentages)
-        target_pct = 100.0 / n_assets
-        
         pct_values = list(percentages.values())
         max_pct = max(pct_values)
         min_pct = min(pct_values)

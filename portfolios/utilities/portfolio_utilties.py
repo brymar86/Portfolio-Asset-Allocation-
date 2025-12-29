@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-import statsmodels.api as sm
-import scipy.stats as stats
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 
@@ -436,9 +434,6 @@ def portfolio_sharpe_ratio(returns_df: pd.DataFrame, weights: np.ndarray,
     annualized_return = portfolio_return * periods_per_year
     annualized_std = portfolio_std * np.sqrt(periods_per_year)
     
-    # Annualized risk-free rate (already annualized, so convert to per-period)
-    period_risk_free = risk_free_rate / periods_per_year
-    
     # Sharpe ratio: (E[R] - Rf) / σ
     sharpe = (annualized_return - risk_free_rate) / annualized_std
     
@@ -503,7 +498,6 @@ def plot_efficient_frontier(returns_df: pd.DataFrame, risk_free_rate: float = 0.
     
     # Convert risk-free rate to per-period (assuming daily returns, 252 trading days)
     periods_per_year = 252
-    period_rf = risk_free_rate / periods_per_year
     
     # Find minimum and maximum possible returns
     # Minimum: portfolio with minimum return asset
@@ -571,13 +565,11 @@ def plot_efficient_frontier(returns_df: pd.DataFrame, risk_free_rate: float = 0.
     max_sharpe_idx = np.argmax(sharpe_ratios)
     max_sharpe_risk = efficient_risks_annual[max_sharpe_idx]
     max_sharpe_return = efficient_returns_annual[max_sharpe_idx]
-    max_sharpe_weights = efficient_weights[max_sharpe_idx]
     
     # Find minimum variance portfolio
     min_var_idx = np.argmin(efficient_risks_annual)
     min_var_risk = efficient_risks_annual[min_var_idx]
     min_var_return = efficient_returns_annual[min_var_idx]
-    min_var_weights = efficient_weights[min_var_idx]
     
     # Create plot
     if ax is None:

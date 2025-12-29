@@ -15,7 +15,6 @@ Mathematical Foundations:
 import pytest
 import numpy as np
 import pandas as pd
-from ..base_optimizer import BasePortfolioOptimizer
 from ..hierarchical_risk_parity import HierarchicalRiskParity
 
 

@@ -40,3 +40,13 @@ dependencies = [
 dev = [
     "ruff>=0.14.10",
 ]
+
+[tool.ruff]
+# Ignore E402 (module level import not at top of file) for notebooks
+# This is common and acceptable in Jupyter notebooks where imports
+# may be done in the middle of cells for demonstration purposes
+extend-ignore = ["E402"]
+
+[tool.ruff.per-file-ignores]
+# Allow imports anywhere in notebook cells
+"*.ipynb" = ["E402"]

@@ -177,9 +177,9 @@ class ReturnEnhancedHRP(BasePortfolioOptimizer):
                 print(f"Benchmark: Equal-weighted portfolio of {len(returns_df.columns)} assets")
             else:
                 print(f"Benchmark: Custom benchmark returns (length: {len(self.benchmark_returns_)})")
-            print(f"Allocation Metric: Information Ratio")
-            print(f"Formula: α = IR_right / (IR_left + IR_right)")
-            print(f"Information Ratio = (E[R_portfolio] - E[R_benchmark]) / Tracking_Error")
+            print("Allocation Metric: Information Ratio")
+            print("Formula: α = IR_right / (IR_left + IR_right)")
+            print("Information Ratio = (E[R_portfolio] - E[R_benchmark]) / Tracking_Error")
             print("=" * 80)
             print("WARNING: Information Ratio vs equal-weighted benchmark may favor low-volatility")
             print("assets if the benchmark performs well. Consider using 'sharpe' instead.")
@@ -189,9 +189,9 @@ class ReturnEnhancedHRP(BasePortfolioOptimizer):
             print("=" * 80)
             print("RE-HRP: Sharpe Ratio Allocation (Recommended)")
             print("=" * 80)
-            print(f"Allocation Metric: Sharpe Ratio")
-            print(f"Formula: α = SR_right / (SR_left + SR_right)")
-            print(f"Sharpe Ratio = (E[R] - r_f) / σ_total")
+            print("Allocation Metric: Sharpe Ratio")
+            print("Formula: α = SR_right / (SR_left + SR_right)")
+            print("Sharpe Ratio = (E[R] - r_f) / σ_total")
             print(f"Risk-free rate: {self.risk_free_rate:.2%}")
             print("=" * 80)
         
@@ -266,12 +266,12 @@ class ReturnEnhancedHRP(BasePortfolioOptimizer):
             print("RE-HRP Allocation Summary")
             print("=" * 80)
             if self.allocation_metric == 'information_ratio':
-                print(f"Allocation complete. Portfolio weights favor clusters with higher Information Ratios.")
+                print("Allocation complete. Portfolio weights favor clusters with higher Information Ratios.")
             elif self.allocation_metric == 'sharpe':
-                print(f"Allocation complete. Portfolio weights favor clusters with higher Sharpe Ratios.")
+                print("Allocation complete. Portfolio weights favor clusters with higher Sharpe Ratios.")
             else:
-                print(f"Allocation complete. Portfolio weights favor clusters with higher Sortino Ratios.")
-            print(f"Top weighted assets:")
+                print("Allocation complete. Portfolio weights favor clusters with higher Sortino Ratios.")
+            print("Top weighted assets:")
             # Show top 5 assets by weight
             weights_dict = dict(zip(self.asset_names_, self.weights_))
             sorted_weights = sorted(weights_dict.items(), key=lambda x: x[1], reverse=True)

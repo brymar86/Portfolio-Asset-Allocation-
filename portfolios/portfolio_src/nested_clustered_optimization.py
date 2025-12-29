@@ -295,7 +295,8 @@ class NestedClusteredOptimization(BasePortfolioOptimizer):
                 'type': 'eq',
                 'fun': lambda w: expected_returns.T @ w - target
             })
-            objective = lambda w: w.T @ cov_matrix @ w
+            def objective(w):
+                return w.T @ cov_matrix @ w
         else:
             # Maximize Sharpe ratio (minimize negative Sharpe)
             def objective(weights):
@@ -392,7 +393,8 @@ class NestedClusteredOptimization(BasePortfolioOptimizer):
                 'type': 'eq',
                 'fun': lambda w: cluster_returns.T @ w - target
             })
-            objective = lambda w: w.T @ cluster_cov @ w
+            def objective(w):
+                return w.T @ cluster_cov @ w
         else:
             # Maximize Sharpe ratio
             def objective(weights):

@@ -311,10 +311,9 @@ class TestHierarchicalRiskParity:
                     far_pairs_corr.append(corr_val)
         
         if close_pairs_corr and far_pairs_corr:
-            avg_close_corr = np.mean(close_pairs_corr)
-            avg_far_corr = np.mean(far_pairs_corr)
             # On average, close pairs should have higher correlation
             # (This is a soft constraint, not always true)
+            # Note: avg_close_corr and avg_far_corr calculated but not used in assertion
     
     def test_portfolio_performance_consistency(self, sample_returns):
         """

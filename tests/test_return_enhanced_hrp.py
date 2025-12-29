@@ -177,11 +177,6 @@ class TestReturnEnhancedHRP(unittest.TestCase):
         # Create returns with known downside
         returns = np.array([0.01, -0.02, 0.03, -0.01, 0.02, -0.03, 0.01])
         
-        # Calculate downside deviation manually
-        downside_returns = np.minimum(0, returns - 0.0)
-        expected_downside_var = np.mean(downside_returns ** 2)
-        expected_downside_dev = np.sqrt(expected_downside_var)
-        
         # Calculate using RE-HRP method
         sortino = re_hrp._compute_sortino_ratio(
             returns,
@@ -391,9 +386,6 @@ class TestReturnEnhancedHRP(unittest.TestCase):
             'BTC-USD': btc_returns
         }, index=dates)
         
-        # Calculate benchmark return (equal-weighted)
-        benchmark_return = returns_df.mean(axis=1).mean() * 252
-        
         # Test 1: With default threshold (benchmark return)
         # TLT should NOT get excessive weight because its return (0.5%) < benchmark (~38.5%)
         re_hrp_default = ReturnEnhancedHRP(
@@ -487,9 +479,6 @@ class TestReturnEnhancedHRP(unittest.TestCase):
             'QQQ': qqq_returns,
             'IWM': iwm_returns
         }, index=dates)
-        
-        # Calculate benchmark return (equal-weighted)
-        benchmark_return = returns_df.mean(axis=1).mean() * 252
         
         # Test: With default threshold (benchmark return)
         # Bond cluster return (~1.17%) < benchmark (~8.5%), so should get less weight

@@ -17,7 +17,7 @@ from pathlib import Path
 # Add parent directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from portfolios.utilities.denoising import CovarianceDenoiser, DenoisingMethod
+from portfolios.utilities.denoising import CovarianceDenoiser
 from portfolios.portfolio_src import HierarchicalRiskParity, ReturnEnhancedHRP
 
 
@@ -299,7 +299,7 @@ class TestCovarianceDenoiser(unittest.TestCase):
         
         # Check that eigenvalues changed (some should have been modified)
         # At least one eigenvalue should differ if there were random eigenvalues
-        eigenvalues_differ = not np.allclose(original_eigenvalues, denoised_eigenvalues, rtol=1e-5)
+        # Note: eigenvalues_differ calculated but not used in assertion
         # This should generally be True, but if all eigenvalues are signal, they won't differ
         # So we just check that the process didn't crash and produced valid output
         self.assertEqual(len(denoised_eigenvalues), len(original_eigenvalues))
@@ -405,8 +405,6 @@ class TestCovarianceDenoiser(unittest.TestCase):
         random_eigenvalues = eigenvalues_orig[random_mask]
         
         if len(random_eigenvalues) > 0:
-            expected_mean = np.mean(random_eigenvalues)
-            
             # Denoise
             denoised = self.denoiser.denoise(
                 self.cov_matrix,
