@@ -13,7 +13,7 @@ demonstration of his work.
 
 References:
     De Prado, M. L. (2016). Building Diversified Portfolios that Outperform
-    Out of Sample. The Journal of Portfolio Management, 42(4), 59-69.
+      Out of Sample. The Journal of Portfolio Management, 42(4), 59-69.
     
     DOI: https://doi.org/10.3905/jpm.2016.42.4.059
     
@@ -34,7 +34,7 @@ import numpy as np
 import pandas as pd
 from scipy.cluster.hierarchy import linkage, dendrogram, leaves_list
 from scipy.spatial.distance import squareform
-from typing import Optional
+from typing import Optional, Literal
 from .base_optimizer import BasePortfolioOptimizer
 
 
@@ -55,7 +55,9 @@ class HierarchicalRiskParity(BasePortfolioOptimizer):
         cov_quasi_diag_ (pd.DataFrame): Quasi-diagonalized covariance matrix.
     """
     
-    def __init__(self, linkage_method: str = 'ward', distance_metric: str = 'euclidean'):
+    def __init__(self, linkage_method: str = 'ward', distance_metric: str = 'euclidean',
+                 denoise: bool = False,
+                 denoising_method: Literal["constant_residual", "targeted_shrinkage", "eigenvalue_clipping"] = "constant_residual"):
         """
         Initialize HRP optimizer.
         
@@ -64,10 +66,18 @@ class HierarchicalRiskParity(BasePortfolioOptimizer):
                 Options: 'ward', 'single', 'complete', 'average'. Defaults to 'ward'.
             distance_metric (str, optional): Distance metric for clustering.
                 Defaults to 'euclidean'.
+            denoise (bool, optional): If True, apply covariance matrix denoising before
+                optimization. Denoising removes random noise from the eigenvalue spectrum
+                using Random Matrix Theory. Defaults to False.
+            denoising_method (str, optional): Denoising method to use when denoise=True.
+                Options: 'constant_residual' (default/standard), 'targeted_shrinkage',
+                or 'eigenvalue_clipping'. Defaults to 'constant_residual'.
         """
         super().__init__()
         self.linkage_method = linkage_method
         self.distance_metric = distance_metric
+        self.denoise = denoise
+        self.denoising_method = denoising_method
         self.linkage_matrix_: Optional[np.ndarray] = None
         self.tree_order_: Optional[np.ndarray] = None
         self.cov_quasi_diag_: Optional[pd.DataFrame] = None
@@ -98,6 +108,30 @@ class HierarchicalRiskParity(BasePortfolioOptimizer):
         # Compute covariance and correlation matrices
         self.cov_matrix_ = self._compute_covariance(returns_df)
         self.corr_matrix_ = self._compute_correlation(returns_df)
+        
+        # Apply denoising if requested
+        if self.denoise:
+            from portfolios.utilities.denoising import CovarianceDenoiser
+            denoiser = CovarianceDenoiser()
+            num_observations = len(returns_df)
+            
+            # Extract volatilities (standard deviations) from covariance matrix
+            volatilities = pd.Series(
+                np.sqrt(np.diag(self.cov_matrix_.values)),
+                index=self.cov_matrix_.index
+            )
+            
+            # Denoise correlation matrix (recommended approach: MP assumes isotropic noise)
+            corr_denoised = denoiser.denoise(
+                self.corr_matrix_,
+                method=self.denoising_method,
+                num_observations=num_observations,
+                matrix_type="correlation"
+            )
+            
+            # Rescale denoised correlation to covariance: Σ = D R̂ D
+            self.cov_matrix_ = denoiser._rescale_to_covariance(corr_denoised, volatilities)
+            self.corr_matrix_ = corr_denoised
         
         # Step 1: Convert correlation matrix to distance matrix
         # Distance: d = sqrt(2 * (1 - corr))

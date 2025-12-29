@@ -181,6 +181,111 @@ class TestRiskParity(unittest.TestCase):
         total_pct = sum(percentages.values())
         self.assertAlmostEqual(total_pct, 100.0, places=1)
     
+    def test_risk_parity_risk_contribution_identity(self):
+        """
+        Test the key mathematical identity: sum(RC_i) = σ_p.
+        
+        This verifies that risk contributions sum to portfolio volatility,
+        which is a fundamental property of risk contributions.
+        """
+        rp = RiskParity()
+        rp.fit(self.returns_df)
+        
+        # Get portfolio volatility
+        _, portfolio_vol, _ = rp.portfolio_performance()
+        
+        # Get risk contributions
+        risk_contribs = rp.get_risk_contributions()
+        total_risk_contrib = sum(risk_contribs.values())
+        
+        # Key identity: sum(RC_i) should equal σ_p
+        # Allow small numerical tolerance (1e-6) for floating point precision
+        self.assertAlmostEqual(total_risk_contrib, portfolio_vol, places=5,
+                               msg="Risk contributions should sum to portfolio volatility")
+    
+    def test_risk_parity_equal_risk_contribution(self):
+        """
+        Test that risk contributions are approximately equal (ERC property).
+        
+        For Risk Parity, each asset should contribute approximately equal risk.
+        We test this using absolute risk contributions (in volatility units),
+        which should each equal σ_p/n.
+        """
+        rp = RiskParity()
+        rp.fit(self.returns_df)
+        
+        # Get portfolio volatility
+        _, portfolio_vol, _ = rp.portfolio_performance()
+        
+        # Get absolute risk contributions (in volatility units)
+        risk_contribs = rp.get_risk_contributions()
+        rc_values = np.array(list(risk_contribs.values()))
+        
+        # For n assets, each should contribute approximately σ_p/n
+        n_assets = len(rc_values)
+        expected_rc = portfolio_vol / n_assets
+        
+        # Check that all risk contributions are close to expected value
+        # Allow 5% deviation (reasonable for optimization tolerance)
+        max_deviation = 0.05 * expected_rc  # 5% of expected value
+        
+        for asset, rc_abs in risk_contribs.items():
+            deviation = abs(rc_abs - expected_rc)
+            self.assertLess(deviation, max_deviation,
+                           msg=f"Asset {asset} risk contribution {rc_abs:.6f} deviates "
+                               f"too much from expected {expected_rc:.6f} (σ_p/n)")
+    
+    def test_risk_parity_diversification_constraints(self):
+        """
+        Test that diversification constraints are satisfied.
+        
+        Verifies:
+        1. Minimum weight threshold (1% per asset)
+        2. Maximum weight threshold (50% per asset)
+        """
+        rp = RiskParity()
+        rp.fit(self.returns_df)
+        
+        weights = rp.predict()
+        
+        # Check minimum weight constraint (1% per asset)
+        min_weight = 0.01
+        self.assertTrue(np.all(weights >= min_weight - 1e-6),  # Allow small numerical error
+                       msg="All weights should be at least 1% (diversification constraint)")
+        
+        # Check maximum weight constraint (50% per asset)
+        max_weight = 0.50
+        self.assertTrue(np.all(weights <= max_weight + 1e-6),  # Allow small numerical error
+                       msg="All weights should be at most 50% (concentration limit)")
+    
+    def test_risk_parity_inverse_volatility_relationship(self):
+        """
+        Test that Risk Parity weights are approximately inversely proportional to volatility.
+        
+        For Risk Parity, we expect: w_i ≈ constant / σ_i
+        This means higher volatility assets get lower weights.
+        """
+        rp = RiskParity()
+        rp.fit(self.returns_df)
+        
+        weights = rp.predict()
+        
+        # Compute asset volatilities
+        cov_matrix = rp.cov_matrix_.values
+        volatilities = np.sqrt(np.diag(cov_matrix))
+        
+        # Check inverse relationship: w_i * σ_i should be approximately constant
+        # (for true Risk Parity, w_i * σ_i ≈ constant for all i)
+        weighted_vols = weights * volatilities
+        
+        # Coefficient of variation should be small (indicating near-constant)
+        cv = np.std(weighted_vols) / np.mean(weighted_vols)
+        
+        # Allow up to 20% coefficient of variation (accounts for correlations)
+        self.assertLess(cv, 0.20,
+                        msg="Risk Parity weights should be approximately inversely "
+                            "proportional to volatility (w_i * σ_i ≈ constant)")
+    
     def test_risk_parity_portfolio_performance(self):
         """Test portfolio performance calculation."""
         rp = RiskParity()

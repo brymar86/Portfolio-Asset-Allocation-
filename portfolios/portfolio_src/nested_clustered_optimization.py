@@ -17,7 +17,7 @@ demonstration of his work.
 
 References:
     De Prado, M. L. (2016). Building Diversified Portfolios that Outperform
-    Out of Sample. The Journal of Portfolio Management, 42(4), 59-69.
+      Out of Sample. The Journal of Portfolio Management, 42(4), 59-69.
     
     DOI: https://doi.org/10.3905/jpm.2016.42.4.059
     

@@ -11,11 +11,19 @@ wheels/
 *.egg-info/
 .eggs/
 
+
+
 # Virtual environments
 .venv
 venv/
 ENV/
 env/
+
+# Config files with secrets
+config/prod.env
+portfolios/config/prod.env
+**/config/prod.env
+*.env
 
 # Jupyter Notebook
 .ipynb_checkpoints

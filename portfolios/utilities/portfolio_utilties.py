@@ -187,13 +187,14 @@ def max_drawdown(series: pd.Series) -> float:
     drawdown = (cum - peak) / peak
     return drawdown.min()
 
-def weighted_portfolio_returns(returns_df: pd.DataFrame, weights: np.ndarray) -> pd.Series:
+def weighted_portfolio_returns(returns_df: pd.DataFrame, weights: np.ndarray, normalize: bool = True) -> pd.Series:
     """
     Calculate weighted portfolio returns from individual asset returns.
     
     This function computes the portfolio return for each time period by taking
-    the weighted average of individual asset returns. The weights should sum to 1.0
-    and correspond to the columns in the returns DataFrame.
+    the weighted average of individual asset returns. The weights can represent
+    either a fully-invested portfolio (sum to 1.0) or a leveraged portfolio
+    (sum to leverage amount, e.g., 1.5 for 1.5x leverage).
     
     The calculation uses matrix dot product for efficiency:
     - For each time period (row), the portfolio return is calculated as:
@@ -201,9 +202,14 @@ def weighted_portfolio_returns(returns_df: pd.DataFrame, weights: np.ndarray) ->
     - This is equivalent to: returns_df.dot(weights)
     - Matrix dimensions: (n_periods × n_assets) · (n_assets × 1) = (n_periods × 1)
     
-    Example calculation for one time period:
+    Example calculation for one time period (no leverage):
         If assets [AAPL, MSFT] have returns [0.01, 0.02] and weights [0.6, 0.4]:
         Portfolio Return = (0.6 × 0.01) + (0.4 × 0.02) = 0.006 + 0.008 = 0.014
+    
+    Example calculation with 1.5x leverage:
+        If weights [0.9, 0.6] sum to 1.5 (1.5x leverage):
+        Portfolio Return = (0.9 × 0.01) + (0.6 × 0.02) = 0.009 + 0.012 = 0.021
+        (Note: returns are scaled by the leverage factor)
     
     Args:
         returns_df (pd.DataFrame): DataFrame with returns for each asset.
@@ -211,11 +217,16 @@ def weighted_portfolio_returns(returns_df: pd.DataFrame, weights: np.ndarray) ->
             Each value should be a return (e.g., 0.01 for 1%).
         weights (np.ndarray): Array of portfolio weights for each asset.
             Should have the same length as the number of columns in returns_df.
-            Weights should sum to 1.0 (will be normalized if they don't).
+            If normalize=True (default), weights will be normalized to sum to 1.0.
+            If normalize=False, weights are used as-is, allowing for leverage.
+        normalize (bool, optional): Whether to normalize weights to sum to 1.0.
+            Defaults to True for backward compatibility. Set to False to allow
+            leveraged portfolios where weights sum to the leverage amount.
     
     Returns:
         pd.Series: Time series of weighted portfolio returns with the same
-            index as returns_df.
+            index as returns_df. Returns reflect leverage if normalize=False
+            and weights sum to a leverage amount > 1.0.
     
     Example:
         >>> returns = pd.DataFrame({
@@ -228,10 +239,20 @@ def weighted_portfolio_returns(returns_df: pd.DataFrame, weights: np.ndarray) ->
         1   -0.016
         2    0.026
         dtype: float64
+        
+        >>> # Leveraged portfolio (1.5x leverage)
+        >>> leveraged_weights = np.array([0.9, 0.6])  # Sums to 1.5
+        >>> weighted_portfolio_returns(returns, leveraged_weights, normalize=False)
+        0    0.021
+        1   -0.024
+        2    0.039
+        dtype: float64
     """
-    # Normalize weights to ensure they sum to 1.0
     weights = np.array(weights)
-    weights = weights / weights.sum()
+    
+    # Normalize weights if requested (default behavior for backward compatibility)
+    if normalize:
+        weights = weights / weights.sum()
     
     # DOT PRODUCT CALCULATION: Efficient matrix multiplication
     # 
@@ -249,9 +270,54 @@ def weighted_portfolio_returns(returns_df: pd.DataFrame, weights: np.ndarray) ->
     #
     # This is equivalent to calculating for each period:
     #   period_return = (weight_1 × return_1) + (weight_2 × return_2) + ... + (weight_n × return_n)
+    #
+    # Note: If normalize=False and weights sum to leverage amount L, returns are scaled by L
     portfolio_returns = returns_df.dot(weights)
     
     return portfolio_returns
+
+def weighted_leveraged_portfolio_returns(returns_df: pd.DataFrame, weights: np.ndarray) -> pd.Series:
+    """
+    Calculate weighted portfolio returns for a leveraged portfolio.
+    
+    This is a convenience function that calls weighted_portfolio_returns with
+    normalize=False, allowing weights to sum to a leverage amount (e.g., 1.5 for
+    1.5x leverage, 2.0 for 2x leverage).
+    
+    The portfolio return calculation is:
+        Portfolio Return = Σ(weight_i × return_i)
+    
+    With leverage L (where weights sum to L), returns are scaled by L:
+        - If L = 1.5 (1.5x leverage), returns are 1.5x the unleveraged returns
+        - If L = 2.0 (2x leverage), returns are 2.0x the unleveraged returns
+    
+    Args:
+        returns_df (pd.DataFrame): DataFrame with returns for each asset.
+            Rows represent time periods, columns represent different assets.
+            Each value should be a return (e.g., 0.01 for 1%).
+        weights (np.ndarray): Array of portfolio weights for each asset.
+            Should have the same length as the number of columns in returns_df.
+            Weights should sum to the desired leverage amount (e.g., 1.5 for 1.5x).
+            Weights are NOT normalized, so they are used as-is.
+    
+    Returns:
+        pd.Series: Time series of weighted portfolio returns with the same
+            index as returns_df. Returns reflect the leverage factor.
+    
+    Example:
+        >>> returns = pd.DataFrame({
+        ...     'AAPL': [0.01, -0.02, 0.03],
+        ...     'MSFT': [0.02, -0.01, 0.02]
+        ... })
+        >>> # 1.5x leveraged portfolio (weights sum to 1.5)
+        >>> leveraged_weights = np.array([0.9, 0.6])
+        >>> weighted_leveraged_portfolio_returns(returns, leveraged_weights)
+        0    0.021
+        1   -0.024
+        2    0.039
+        dtype: float64
+    """
+    return weighted_portfolio_returns(returns_df, weights, normalize=False)
 
 def portfolio_expected_return(returns_df: pd.DataFrame, weights: np.ndarray) -> float:
     """
@@ -582,4 +648,242 @@ def plot_efficient_frontier(returns_df: pd.DataFrame, risk_free_rate: float = 0.
     if fig is not None:
         plt.tight_layout()
     
+    return (fig, ax)
+
+
+def plot_portfolio_weights_pie(weights, asset_names, title="Portfolio Weights", ax=None, figsize=(8, 8), 
+                                min_weight_threshold=0.01):
+    """
+    Create a pie chart visualization for portfolio weights.
+    
+    Args:
+        weights (np.ndarray or pd.Series): Portfolio weights (should sum to 1.0 or leverage factor)
+        asset_names (list or pd.Index): Names of assets corresponding to weights
+        title (str): Title for the pie chart
+        ax (matplotlib.axes.Axes, optional): Axes to plot on. If None, creates new figure.
+        figsize (tuple): Figure size if creating new figure
+        min_weight_threshold (float): Weights below this threshold are grouped into "Others"
+    
+    Returns:
+        tuple: (fig, ax) matplotlib figure and axes objects
+    """
+    # Convert to numpy array if needed
+    if isinstance(weights, pd.Series):
+        weights = weights.values
+    weights = np.array(weights)
+    
+    # Handle small weights by grouping into "Others"
+    mask = weights >= min_weight_threshold
+    large_weights = weights[mask]
+    large_names = [asset_names[i] for i in range(len(weights)) if mask[i]]
+    
+    small_weights_sum = weights[~mask].sum()
+    if small_weights_sum > 0:
+        large_weights = np.append(large_weights, small_weights_sum)
+        large_names.append("Others")
+    
+    # Create color map for consistent coloring
+    colors = plt.cm.Set3(np.linspace(0, 1, len(large_weights)))
+    
+    # Create figure if needed
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+    
+    # Create pie chart
+    wedges, texts, autotexts = ax.pie(large_weights, labels=large_names, autopct='%1.1f%%',
+                                       colors=colors, startangle=90, textprops={'fontsize': 10})
+    
+    # Enhance text visibility
+    for autotext in autotexts:
+        autotext.set_color('black')
+        autotext.set_fontweight('bold')
+    
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
+    
+    return (fig, ax)
+
+
+def plot_portfolio_weights_comparison_grid(weights_dict, asset_names, figsize=(16, 12), 
+                                           min_weight_threshold=0.01, n_cols=3):
+    """
+    Create a grid of pie charts comparing multiple portfolio optimization methods.
+    
+    Args:
+        weights_dict (dict): Dictionary mapping method names to weight arrays
+            Example: {'HRP': weights_array, 'Risk Parity': weights_array, ...}
+        asset_names (list or pd.Index): Names of assets
+        figsize (tuple): Figure size
+        min_weight_threshold (float): Weights below this threshold are grouped into "Others"
+        n_cols (int): Number of columns in the grid
+    
+    Returns:
+        tuple: (fig, axes) matplotlib figure and axes array
+    """
+    n_methods = len(weights_dict)
+    n_rows = int(np.ceil(n_methods / n_cols))
+    
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
+    if n_methods == 1:
+        axes = np.array([axes])
+    if n_rows == 1:
+        axes = axes.reshape(1, -1)
+    axes = axes.flatten()
+    
+    # Create consistent color mapping for all assets
+    all_assets = set()
+    for weights in weights_dict.values():
+        if isinstance(weights, pd.Series):
+            weights = weights.values
+        weights = np.array(weights)
+        mask = weights >= min_weight_threshold
+        for i in range(len(weights)):
+            if mask[i]:
+                all_assets.add(asset_names[i])
+    all_assets = sorted(list(all_assets))
+    asset_color_map = {asset: plt.cm.Set3(i / len(all_assets)) for i, asset in enumerate(all_assets)}
+    asset_color_map['Others'] = plt.cm.Set3(0.9)
+    
+    # Plot each method
+    for idx, (method_name, weights) in enumerate(weights_dict.items()):
+        ax = axes[idx]
+        
+        # Convert to numpy array if needed
+        if isinstance(weights, pd.Series):
+            weights = weights.values
+        weights = np.array(weights)
+        
+        # Handle small weights
+        mask = weights >= min_weight_threshold
+        large_weights = weights[mask]
+        large_names = [asset_names[i] for i in range(len(weights)) if mask[i]]
+        
+        small_weights_sum = weights[~mask].sum()
+        if small_weights_sum > 0:
+            large_weights = np.append(large_weights, small_weights_sum)
+            large_names.append("Others")
+        
+        # Map colors
+        colors = [asset_color_map.get(name, asset_color_map['Others']) for name in large_names]
+        
+        # Create pie chart
+        ax.pie(large_weights, labels=large_names, autopct='%1.1f%%',
+               colors=colors, startangle=90, textprops={'fontsize': 8})
+        ax.set_title(method_name, fontsize=11, fontweight='bold')
+    
+    # Hide unused subplots
+    for idx in range(n_methods, len(axes)):
+        axes[idx].axis('off')
+    
+    plt.tight_layout()
+    return (fig, axes)
+
+
+def plot_portfolio_weights_scatter_pie(weights_dict, returns_dict, volatilities_dict, asset_names,
+                                       figsize=(14, 10), min_weight_threshold=0.01, pie_size=0.08):
+    """
+    Create a scatter plot with pie charts positioned at risk-return coordinates.
+    Each method is shown as a pie chart at its (volatility, return) position.
+    
+    Args:
+        weights_dict (dict): Dictionary mapping method names to weight arrays
+        returns_dict (dict): Dictionary mapping method names to annualized returns
+        volatilities_dict (dict): Dictionary mapping method names to annualized volatilities
+        asset_names (list or pd.Index): Names of assets
+        figsize (tuple): Figure size
+        min_weight_threshold (float): Weights below this threshold are grouped into "Others"
+        pie_size (float): Size of pie charts as fraction of figure (default 0.08 = 8%)
+    
+    Returns:
+        tuple: (fig, ax) matplotlib figure and axes objects
+    """
+    try:
+        from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    except ImportError:
+        # Fallback: use regular scatter with labels if inset_axes not available
+        fig, ax = plt.subplots(figsize=figsize)
+        for method_name in weights_dict.keys():
+            vol = volatilities_dict[method_name]
+            ret = returns_dict[method_name]
+            ax.scatter(vol, ret, s=200, alpha=0.7)
+            ax.annotate(method_name, (vol, ret), xytext=(5, 5), 
+                       textcoords='offset points', fontsize=9)
+        ax.set_xlabel('Volatility (Annualized)', fontsize=12)
+        ax.set_ylabel('Expected Return (Annualized)', fontsize=12)
+        ax.set_title('Portfolio Methods: Risk-Return Space', fontsize=14, fontweight='bold')
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        return (fig, ax)
+    
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    # Get axis ranges
+    all_vols = list(volatilities_dict.values())
+    all_returns = list(returns_dict.values())
+    vol_range = max(all_vols) - min(all_vols) if max(all_vols) > min(all_vols) else 1.0
+    return_range = max(all_returns) - min(all_returns) if max(all_returns) > min(all_returns) else 1.0
+    
+    # Create consistent color mapping
+    all_assets = set()
+    for weights in weights_dict.values():
+        if isinstance(weights, pd.Series):
+            weights = weights.values
+        weights = np.array(weights)
+        mask = weights >= min_weight_threshold
+        for i in range(len(weights)):
+            if mask[i]:
+                all_assets.add(asset_names[i])
+    all_assets = sorted(list(all_assets))
+    asset_color_map = {asset: plt.cm.Set3(i / len(all_assets)) for i, asset in enumerate(all_assets)}
+    asset_color_map['Others'] = plt.cm.Set3(0.9)
+    
+    # Set up main axes first to get proper limits
+    ax.set_xlim(min(all_vols) - vol_range * 0.15, max(all_vols) + vol_range * 0.15)
+    ax.set_ylim(min(all_returns) - return_range * 0.15, max(all_returns) + return_range * 0.15)
+    
+    # Plot each method as pie chart at its risk-return position
+    for method_name in weights_dict.keys():
+        weights = weights_dict[method_name]
+        vol = volatilities_dict[method_name]
+        ret = returns_dict[method_name]
+        
+        # Convert to numpy array if needed
+        if isinstance(weights, pd.Series):
+            weights = weights.values
+        weights = np.array(weights)
+        
+        # Handle small weights
+        mask = weights >= min_weight_threshold
+        large_weights = weights[mask]
+        large_names = [asset_names[i] for i in range(len(weights)) if mask[i]]
+        
+        small_weights_sum = weights[~mask].sum()
+        if small_weights_sum > 0:
+            large_weights = np.append(large_weights, small_weights_sum)
+            large_names.append("Others")
+        
+        # Map colors
+        colors = [asset_color_map.get(name, asset_color_map['Others']) for name in large_names]
+        
+        # Create inset axes for pie chart at (vol, ret) position
+        pie_ax = inset_axes(ax, width=f"{pie_size*100}%", height=f"{pie_size*100}%", 
+                           loc='center', bbox_to_anchor=(vol, ret, 1, 1), 
+                           bbox_transform=ax.transData, borderpad=0)
+        
+        pie_ax.pie(large_weights, colors=colors, startangle=90)
+        pie_ax.axis('off')
+        
+        # Add method label below pie chart
+        ax.annotate(method_name, (vol, ret), xytext=(0, -20), 
+                   textcoords='offset points', fontsize=8, alpha=0.8,
+                   ha='center', va='top')
+    
+    # Set up main axes labels
+    ax.set_xlabel('Volatility (Annualized)', fontsize=12)
+    ax.set_ylabel('Expected Return (Annualized)', fontsize=12)
+    ax.set_title('Portfolio Weights: Risk-Return Space', fontsize=14, fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
     return (fig, ax)

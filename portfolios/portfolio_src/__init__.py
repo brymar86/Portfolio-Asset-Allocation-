@@ -16,12 +16,14 @@ from .base_optimizer import BasePortfolioOptimizer
 from .hierarchical_risk_parity import HierarchicalRiskParity
 from .risk_parity import RiskParity
 from .nested_clustered_optimization import NestedClusteredOptimization
+from .return_enhanced_hrp import ReturnEnhancedHRP
 
 __all__ = [
     'BasePortfolioOptimizer',
     'HierarchicalRiskParity',
     'RiskParity',
     'NestedClusteredOptimization',
+    'ReturnEnhancedHRP',
 ]
 
 __version__ = '0.1.0'

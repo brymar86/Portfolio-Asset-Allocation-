@@ -35,3 +35,8 @@ dependencies = [
     "xlsxwriter>=3.2.9",
     "yfinance>=0.2.66",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.10",
+]
